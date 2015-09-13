@@ -105,5 +105,28 @@ class TestGitHook(TestCase):
       self.assertEqual(new_content, expected)
 
 
+  def testSingleFileWithUnstagedChangesIsNormalized(self):
+    """Verify that unstaged changes are handled correctly."""
+    with GitRepository() as repo:
+      content1 = "// Copyright (c) 2013 All Right Reserved."
+      content2 = "// Copyright (c) 2013 All Right Reserved, deso."
+      expected1 = "// Copyright (c) 2013,%d All Right Reserved, deso." % YEAR
+      expected2 = "// Copyright (c) 2013,%d All Right Reserved." % YEAR
+      write(repo, "test.c", data=content1)
+      repo.add("test.c")
+      write(repo, "test.c", data=content2)
+      repo.commit()
+
+      new_content = read(repo, "test.c")
+      self.assertEqual(new_content, expected1)
+
+      # The unstaged changes must not have been commited, so if we
+      # discard them we should change the content of the file once
+      # more.
+      repo.reset("--hard")
+      new_content = read(repo, "test.c")
+      self.assertEqual(new_content, expected2)
+
+
 if __name__ == "__main__":
   main()
