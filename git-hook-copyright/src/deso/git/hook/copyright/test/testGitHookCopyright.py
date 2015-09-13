@@ -128,5 +128,16 @@ class TestGitHook(TestCase):
       self.assertEqual(new_content, expected2)
 
 
+  def testBinaryFileIsIgnored(self):
+    """Verify that binary files are simply ignored by the pre-commit hook."""
+    with GitRepository() as repo:
+      src = join(dirname(__file__), "data", "file.bin")
+      dst = repo.path("file.bin")
+
+      copyfile(src, dst)
+      repo.add("file.bin")
+      repo.commit()
+
+
 if __name__ == "__main__":
   main()

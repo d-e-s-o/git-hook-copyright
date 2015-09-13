@@ -112,7 +112,13 @@ def normalizeStagedFile(path):
 def main():
   """Find all files to commit and normalize them before the commit takes place."""
   for file_git_path in changedFiles():
-    normalizeStagedFile(file_git_path)
+    try:
+      normalizeStagedFile(file_git_path)
+    except UnicodeDecodeError:
+      # We may get a decode error in case of a binary file that we
+      # simply cannot handle properly. We want to ignore those files
+      # silently.
+      pass
 
 
 if __name__ == "__main__":
