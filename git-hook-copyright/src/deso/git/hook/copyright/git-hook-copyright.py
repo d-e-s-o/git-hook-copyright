@@ -29,8 +29,15 @@ from subprocess import (
   check_call,
   check_output,
 )
+from sys import (
+  exit as exit_,
+  stderr,
+)
 from tempfile import (
   NamedTemporaryFile,
+)
+from traceback import (
+  print_exc,
 )
 
 
@@ -119,6 +126,11 @@ def main():
       # simply cannot handle properly. We want to ignore those files
       # silently.
       pass
+    except Exception as e:
+      print("The copyright pre-commit hook encountered an error while "
+            "processing file %s: \"%s\"" % (file_git_path, e), file=stderr)
+      print_exc(file=stderr)
+      exit_(1)
 
 
 if __name__ == "__main__":
