@@ -21,6 +21,7 @@
 
 from argparse import (
   ArgumentParser,
+  ArgumentTypeError,
 )
 from datetime import (
   datetime,
@@ -34,6 +35,9 @@ from deso.copyright.ranges import (
   parseRanges,
   RANGES_SEPARATOR,
   stringifyRanges,
+)
+from deso.copyright.util import (
+  listToEnglishEnumeration,
 )
 from re import (
   compile as regex,
@@ -94,12 +98,12 @@ def normalizeContent(content):
   return COPYRIGHT_RE.sub(normalizeCopyrightYears, content)
 
 
-def normalizeFiles(files):
+def normalizeFiles(files, normalize_fn=normalizeContent):
   """Normalize the copyright headers of a list of files."""
   for file_ in files:
     with open(file_, "r+") as f:
       content = f.read()
-      new_content = normalizeContent(content)
+      new_content = normalize_fn(content)
       if new_content != content:
         f.seek(0)
         f.write(new_content)
@@ -107,6 +111,23 @@ def normalizeFiles(files):
         # some years together so the new content might be smaller than
         # the previous one.
         f.truncate()
+
+
+# A mapping from policy strings to content normalization functions.
+POLICY_MAP = {
+  "plain": normalizeContent,
+}
+
+
+def policyStringToFunction(policy, ErrorType=ArgumentTypeError):
+  """Map a policy string to a normalization function using this policy."""
+  if not policy in POLICY_MAP:
+    policies = listToEnglishEnumeration(list(POLICY_MAP.keys()))
+    error = "Unsupported policy: \"{policy}\". Supported policies are: {policies}"
+    error = error.format(policy=policy, policies=policies)
+    raise ErrorType(error)
+
+  return POLICY_MAP[policy]
 
 
 def setupArgumentParser():
@@ -117,6 +138,14 @@ def setupArgumentParser():
     help="A list of files to check and potentially fix up the copyright "
          "headers for the current year.",
   )
+  parser.add_argument(
+    "--policy", action="store", default=normalizeContent,
+    dest="normalization_fn", metavar="policy",
+    type=policyStringToFunction,
+    help="Specify a policy to use. A policy influences the way "
+         "normalization is performed. Available options are: %s." %
+         listToEnglishEnumeration(list(POLICY_MAP.keys())),
+  )
   return parser
 
 
@@ -125,7 +154,7 @@ def main(argv):
   parser = setupArgumentParser()
   ns = parser.parse_args(argv[1:])
 
-  normalizeFiles(ns.files)
+  normalizeFiles(ns.files, normalize_fn=ns.normalization_fn)
   return 0
 
 

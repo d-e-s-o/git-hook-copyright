@@ -1,4 +1,4 @@
-# __init__.py
+# util.py
 
 #/***************************************************************************
 # *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
@@ -17,27 +17,19 @@
 # *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 # ***************************************************************************/
 
-"""Initialization file of the copyright.test module."""
-
-from os.path import (
-  dirname,
-)
-from unittest import (
-  TestLoader,
-  TestSuite,
-)
+"""A module providing utility functionality."""
 
 
-def allTests():
-  """Retrieve a test suite containing all tests."""
-  tests = [
-    "testNormalize.py",
-    "testRange.py",
-    "testRanges.py",
-    "testUtil.py",
-  ]
+def listToEnglishEnumeration(l):
+  """Convert a list of strings into a single string of the form 'x, y, ..., and z'."""
+  assert len(l) > 0
 
-  loader = TestLoader()
-  directory = dirname(__file__)
-  suites = [loader.discover(directory, pattern=test) for test in tests]
-  return TestSuite(suites)
+  if len(l) == 1:
+    # A single element needs no additional logic.
+    return l[0]
+  elif len(l) == 2:
+    # A two element list would be represented as "x and y".
+    return "%s and %s" % tuple(l)
+  else:
+    # With more than two arguments we require the form "x, y, ..., and z".
+    return "%s, and %s" % (", ".join(l[:-1]), l[-1])

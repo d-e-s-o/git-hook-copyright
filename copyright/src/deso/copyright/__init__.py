@@ -22,6 +22,7 @@
 from deso.copyright.normalize import (
   normalizeContent,
   normalizeFiles,
+  policyStringToFunction,
 )
 from deso.copyright.range import (
   Range,

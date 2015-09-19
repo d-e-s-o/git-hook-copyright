@@ -1,4 +1,4 @@
-# __init__.py
+#!/usr/bin/env python
 
 #/***************************************************************************
 # *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
@@ -17,27 +17,31 @@
 # *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 # ***************************************************************************/
 
-"""Initialization file of the copyright.test module."""
+"""Tests for the utility functionality."""
 
-from os.path import (
-  dirname,
+from deso.copyright.util import (
+  listToEnglishEnumeration,
 )
 from unittest import (
-  TestLoader,
-  TestSuite,
+  main,
+  TestCase,
 )
 
 
-def allTests():
-  """Retrieve a test suite containing all tests."""
-  tests = [
-    "testNormalize.py",
-    "testRange.py",
-    "testRanges.py",
-    "testUtil.py",
-  ]
+class TestUtil(TestCase):
+  """Tests for the utility functionality."""
+  def testEnglishEnumerationStringCreation(self):
+    """Test for listToEnglishEnumeration with various enumerations."""
+    def doTest(list_, expected):
+      """Given a list of values, verify that the created string is as expected."""
+      value = listToEnglishEnumeration(list_)
+      self.assertEqual(value, expected)
 
-  loader = TestLoader()
-  directory = dirname(__file__)
-  suites = [loader.discover(directory, pattern=test) for test in tests]
-  return TestSuite(suites)
+    doTest(["only-item"], "only-item")
+    doTest(["first", "second"], "first and second")
+    doTest(["a", "b", "c"], "a, b, and c")
+    doTest(["4", "3", "2", "0"], "4, 3, 2, and 0")
+
+
+if __name__ == "__main__":
+  main()
