@@ -21,11 +21,17 @@
 
 from deso.copyright import (
   normalizeContent,
+  policyStringToFunction,
+)
+from deso.git.hook.copyright import (
+  KEY_POLICY,
+  SECTION,
 )
 from os.path import (
   basename,
 )
 from subprocess import (
+  CalledProcessError,
   check_call,
   check_output,
 )
@@ -53,6 +59,28 @@ def changedFiles():
   return out.decode("utf-8").splitlines()
 
 
+def retrieveConfigValue(key, *args):
+  """Retrieve a git configuration value associated with a key."""
+  try:
+    name = "%s.%s" % (SECTION, key)
+    out = check_output([GIT, "config", "--null"] + list(args) + [name])
+    # The output is guaranteed to be terminated by a NUL byte. We want
+    # to discard that.
+    return out[:-1].decode("utf-8")
+  except CalledProcessError:
+    # In case the configuration value is not set we just return None.
+    return None
+
+
+def retrieveNormalizationFunction():
+  """Retrieve the normalization policy set for the repository."""
+  policy = retrieveConfigValue(KEY_POLICY)
+  if policy is None:
+    return normalizeContent
+
+  return policyStringToFunction(policy, RuntimeError)
+
+
 def stagedFileContent(path):
   """Retrieve the file content of a file in a git repository including any staged changes."""
   return check_output([GIT, "cat-file", "--textconv", ":%s" % path]).decode("utf-8")
@@ -63,7 +91,7 @@ def stageFile(path):
   check_call([GIT, "add", path])
 
 
-def normalizeStagedFile(path):
+def normalizeStagedFile(path, normalize_fn):
   """Normalize a file in a git repository staged for commit."""
   # The procedure for normalizing an already staged file is not as
   # trivial as it might seem at first glance. Things get complicated
@@ -90,7 +118,7 @@ def normalizeStagedFile(path):
   # bail out.
   with NamedTemporaryFile(mode="w", prefix=basename(path)) as file_tmp:
     staged_content = stagedFileContent(path)
-    normalized_content = normalizeContent(staged_content)
+    normalized_content = normalize_fn(staged_content)
 
     # In many cases we expect the normalization to cause no change to
     # the content. We essentially special-case for that expectation and
@@ -112,15 +140,17 @@ def normalizeStagedFile(path):
       with open(path, "w") as file_git:
         # Last we need to write back the original content. However, we
         # normalize it as well.
-        file_git.write(normalizeContent(original_content))
+        file_git.write(normalize_fn(original_content))
         file_git.truncate()
 
 
 def main():
   """Find all files to commit and normalize them before the commit takes place."""
+  normalize_fn = retrieveNormalizationFunction()
+
   for file_git_path in changedFiles():
     try:
-      normalizeStagedFile(file_git_path)
+      normalizeStagedFile(file_git_path, normalize_fn)
     except UnicodeDecodeError:
       # We may get a decode error in case of a binary file that we
       # simply cannot handle properly. We want to ignore those files

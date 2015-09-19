@@ -22,6 +22,10 @@
 from datetime import (
   datetime,
 )
+from deso.git.hook.copyright import (
+  KEY_POLICY,
+  SECTION,
+)
 from deso.git.repo import (
   read,
   Repository,
@@ -37,6 +41,9 @@ from os.path import (
 from shutil import (
   copyfile,
   which,
+)
+from subprocess import (
+  CalledProcessError,
 )
 from unittest import (
   main,
@@ -79,6 +86,17 @@ def setUpModule():
 
 class TestGitHook(TestCase):
   """Test for the git pre-commit hook normalizing copyright year strings."""
+  def testInvalidPolicyIsComplainedAbout(self):
+    """Verify that if an invalid/unsupported policy is set, we get an error."""
+    with GitRepository() as repo:
+      repo.config(SECTION, KEY_POLICY, "invalid")
+      write(repo, "foo.cpp", data="")
+      repo.add("foo.cpp")
+
+      with self.assertRaises(CalledProcessError):
+        repo.commit()
+
+
   def testSingleFileIsNormalized(self):
     """Verify that a single file is normalized during commit."""
     with GitRepository() as repo:

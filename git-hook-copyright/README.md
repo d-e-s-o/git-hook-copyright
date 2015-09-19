@@ -73,6 +73,29 @@ that it removes any previously installed pre-commit hook. ``git init``
 would not overwrite such files.
 
 
+Configuration
+-------------
+
+The ``git`` pre-commit hook supports different policies. The policy to
+use is defined using the configuration infrastructure provided by
+``git``. Hence, configuration can happen on a per-repository basis or
+globally (similar to the installation).
+
+The pre-commit hook reads the ``copyright.policy`` configuration value.
+The expected value is a string that represents the policy to use.
+Currently, only the 'plain' policy is supported, which is also enabled
+by default.
+
+A sample invocation to set the 'plain' policy looks like this:
+
+``$ git config copyright.policy plain``
+
+Alternatively, one can pass the '--global' flag to the invocation to
+make the change affect all repositories managed by the user. E.g.,
+
+``$ git config --global copyright.policy plain``
+
+
 Support
 -------
 
