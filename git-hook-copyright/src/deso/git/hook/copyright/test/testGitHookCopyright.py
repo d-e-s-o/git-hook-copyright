@@ -146,6 +146,20 @@ class TestGitHook(TestCase):
       self.assertEqual(new_content, expected2)
 
 
+  def testSingleFileWithPadPolicy(self):
+    """Verify that the commit hook can use the 'pad' policy."""
+    with GitRepository() as repo:
+      content = "* Copyright (C) 2010,2011,2012,2013 Daniel Mueller (deso@posteo.net)  *"
+      expected = "* Copyright (C) 2010-2013,%d Daniel Mueller (deso@posteo.net)       *" % YEAR
+      repo.config(SECTION, KEY_POLICY, "pad")
+      write(repo, "test.py", data=content)
+      repo.add("test.py")
+      repo.commit()
+
+      new_content = read(repo, "test.py")
+      self.assertEqual(new_content, expected)
+
+
   def testBinaryFileIsIgnored(self):
     """Verify that binary files are simply ignored by the pre-commit hook."""
     with GitRepository() as repo:

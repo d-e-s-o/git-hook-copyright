@@ -83,17 +83,21 @@ globally (similar to the installation).
 
 The pre-commit hook reads the ``copyright.policy`` configuration value.
 The expected value is a string that represents the policy to use.
-Currently, only the 'plain' policy is supported, which is also enabled
-by default.
+Currently, two policies are supported: The 'plain' policy (which is the
+default and used when no configuration value is set) performs
+normalization and adjusts the copyright years to include the current
+one. The 'pad' policy acts similarly but in addition is able to handle
+"framed" copyright headers, i.e., ones that are padded with whitespaces
+(followed by other characters).
 
-A sample invocation to set the 'plain' policy looks like this:
+A sample invocation to set the 'pad' policy looks like this:
 
-``$ git config copyright.policy plain``
+``$ git config copyright.policy pad``
 
 Alternatively, one can pass the '--global' flag to the invocation to
 make the change affect all repositories managed by the user. E.g.,
 
-``$ git config --global copyright.policy plain``
+``$ git config --global copyright.policy pad``
 
 
 Support
