@@ -50,6 +50,7 @@ from sys import (
 
 
 ANY_R = r"[^\n\r]"
+TWO_SPACES_RE = regex(r"  ")
 # A regular expression string representing a single year. Note that we
 # deliberately do not require a year to start with a number not equal to
 # zero. Sometimes years are shortened, e.g., 98 could represent 1998 or
@@ -64,13 +65,15 @@ CYEARS = r"{y}(?:\s*[{s1}{s2}]\s*{y})*"
 CYEARS_R = CYEARS.format(y=YEAR_R, s1=YEAR_SEP_R, s2=RANGES_SEP_R)
 PREFIX = r"copyright(?:{a}(?!{c}))*{a}"
 PREFIX_R = PREFIX.format(a=ANY_R, c=CYEARS_R)
+SUFFIX = r"{a}*"
+SUFFIX_R = SUFFIX.format(a=ANY_R)
 # A regular expression string representing what we expect a line with a
 # copyright reference to look like. Note that the regular expression can
 # not only work on a line-by-line but also a per-file basis. In fact,
 # that is the intended usage because then we do not have to care about
 # different line endings when writing out data.
-COPYRIGHT = r"({p})({c})"
-COPYRIGHT_R = COPYRIGHT.format(p=PREFIX_R, c=CYEARS_R)
+COPYRIGHT = r"({p})({c})({s})"
+COPYRIGHT_R = COPYRIGHT.format(p=PREFIX_R, c=CYEARS_R, s=SUFFIX_R)
 # The final regular expression able to capture a copyright line.
 COPYRIGHT_RE = regex(COPYRIGHT_R, IGNORECASE)
 
@@ -85,7 +88,7 @@ def normalizeContent(content):
 
   def normalizeCopyrightYears(match):
     """Parse the copyright year string and normalize it."""
-    prefix, range_string = match.groups()
+    prefix, range_string, suffix = match.groups()
     ranges = parseRanges(range_string)
     # Not only do we want to normalize the existing copyright year
     # string, we potentially want to extend it with the current year if
@@ -93,9 +96,52 @@ def normalizeContent(content):
     ranges.append(current_year_range)
     normalizeRanges(ranges)
 
-    return prefix + stringifyRanges(ranges)
+    return prefix + stringifyRanges(ranges) + suffix
 
   return COPYRIGHT_RE.sub(normalizeCopyrightYears, content)
+
+
+def normalizeContentPadded(content):
+  """Normalize the copyright headers in a string representing a file.
+
+    This function normalizes the copyright headers in a string. It also
+    tries to fix any whitespace paddings, for instance, in case the text
+    is framed at a fixed width.
+  """
+  current_year = datetime.now().year
+  current_year_range = Range(current_year, current_year)
+
+  def removeSpace(_):
+    """Replace a two space match with a single space."""
+    return " "
+
+  def normalizeCopyrightYearsPadded(match):
+    """Parse the copyright year string and normalize it."""
+    prefix, range_string, suffix = match.groups()
+
+    ranges = parseRanges(range_string)
+    ranges.append(current_year_range)
+    normalizeRanges(ranges)
+
+    new_range_string = stringifyRanges(ranges)
+    increase = len(new_range_string) - len(range_string)
+
+    if increase > 0:
+      # If the copyright year string got longer we remove that many
+      # spaces from the following suffix (if possible).
+      new_suffix = TWO_SPACES_RE.sub(removeSpace, suffix, count=increase)
+    elif increase < 0:
+      # If the copyright year string got actually smaller (because we
+      # were able to merge years), we insert as many spaces into the
+      # suffix as we removed characters.
+      spaces = "  " + " " * -increase
+      new_suffix = TWO_SPACES_RE.sub(spaces, suffix, count=1)
+    else:
+      new_suffix = suffix
+
+    return prefix + new_range_string + new_suffix
+
+  return COPYRIGHT_RE.sub(normalizeCopyrightYearsPadded, content)
 
 
 def normalizeFiles(files, normalize_fn=normalizeContent):
@@ -116,6 +162,7 @@ def normalizeFiles(files, normalize_fn=normalizeContent):
 # A mapping from policy strings to content normalization functions.
 POLICY_MAP = {
   "plain": normalizeContent,
+  "pad": normalizeContentPadded,
 }
 
 

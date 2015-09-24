@@ -97,6 +97,38 @@ COPYRIGHT_GENTOO_LINE_FIXED = """\
 # Copyright 1995-2015 Gentoo Foundation\
 """
 
+COPYRIGHT_DESO_TEMPLATE = """\
+#/***************************************************************************
+%s
+# *                                                                         *
+# *   This program is free software: you can redistribute it and/or modify  *
+# *   it under the terms of the GNU General Public License as published by  *
+# *   the Free Software Foundation, either version 3 of the License, or     *
+# *   (at your option) any later version.                                   *
+# *                                                                         *
+# *   This program is distributed in the hope that it will be useful,       *
+# *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+# *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+# *   GNU General Public License for more details.                          *
+# *                                                                         *
+# *   You should have received a copy of the GNU General Public License     *
+# *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
+# ***************************************************************************/\
+"""
+COPYRIGHT_DESO_LINE1 = """\
+# * Copyright (C) 2012,2013,2014,2015 Daniel Mueller (deso@posteo.net)      *\
+"""
+COPYRIGHT_DESO_LINE1_FIXED = """\
+# * Copyright (C) 2012-2015 Daniel Mueller (deso@posteo.net)                *\
+"""
+COPYRIGHT_DESO_LINE2 = """\
+# * Copyright (C) 1991 Daniel Mueller (deso@posteo.net)                     *\
+"""
+COPYRIGHT_DESO_LINE2_FIXED = """\
+# * Copyright (C) 1991,2015 Daniel Mueller (deso@posteo.net)                *\
+"""
+
+
 COPYRIGHT_CUSTOM_TEMPLATE = """\
 /*
 @(#)File:           $RCSfile: file.c,v $
@@ -141,13 +173,17 @@ COPYRIGHT_WITH_CONTENT_LINE_FIXED = """\
 
 class TestNormalize(TestCase):
   """Tests for the copyright year string normalization script."""
-  def writeRunReadVerify(self, content, expected):
+  def writeRunReadVerify(self, content, expected, policy=None):
     """Write some data into a temporary file, run normalize, and verify expected result."""
     with NamedTemporaryFile(buffering=0) as f:
       f.write(content.encode("utf-8"))
       f.seek(0)
 
-      normalizeMain([sysargv[0], f.name])
+      argv = [sysargv[0], f.name]
+      if policy is not None:
+        argv += ["--policy=%s" % policy]
+
+      normalizeMain(argv)
       self.assertEqual(f.read(), expected.encode("utf-8"))
 
 
@@ -185,6 +221,21 @@ class TestNormalize(TestCase):
       content = COPYRIGHT_MULTI_HEADER
       expected = COPYRIGHT_MULTI_HEADER_FIXED
       self.writeRunReadVerify(content, expected)
+
+
+  def testNormalizeWithPadding(self):
+    """Test for normalization with the 'pad' policy."""
+    # Tuples of <input>,<expected-output> strings.
+    DESO1 = (COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE1,
+             COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE1_FIXED)
+    DESO2 = (COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE2,
+             COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE2_FIXED)
+
+    with patch("deso.copyright.normalize.datetime", wraps=datetime) as mock_now:
+      mock_now.now.return_value = datetime(2015, 9, 19, 13, 37, 16)
+
+      for content, expected in (DESO1, DESO2):
+        self.writeRunReadVerify(content, expected, policy="pad")
 
 
   def testNormalizeFileWithContent(self):

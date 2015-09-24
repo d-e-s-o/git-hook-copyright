@@ -21,6 +21,7 @@
 
 from deso.copyright.normalize import (
   normalizeContent,
+  normalizeContentPadded,
   normalizeFiles,
   policyStringToFunction,
 )
