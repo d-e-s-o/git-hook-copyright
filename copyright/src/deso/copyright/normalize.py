@@ -98,7 +98,7 @@ def normalizeContent(content):
 
     return prefix + stringifyRanges(ranges) + suffix
 
-  return COPYRIGHT_RE.sub(normalizeCopyrightYears, content)
+  return COPYRIGHT_RE.subn(normalizeCopyrightYears, content)
 
 
 def normalizeContentPadded(content):
@@ -141,7 +141,7 @@ def normalizeContentPadded(content):
 
     return prefix + new_range_string + new_suffix
 
-  return COPYRIGHT_RE.sub(normalizeCopyrightYearsPadded, content)
+  return COPYRIGHT_RE.subn(normalizeCopyrightYearsPadded, content)
 
 
 def normalizeFiles(files, normalize_fn=normalizeContent):
@@ -149,8 +149,8 @@ def normalizeFiles(files, normalize_fn=normalizeContent):
   for file_ in files:
     with open(file_, "r+") as f:
       content = f.read()
-      new_content = normalize_fn(content)
-      if new_content != content:
+      new_content, found = normalize_fn(content)
+      if found > 0 and new_content != content:
         f.seek(0)
         f.write(new_content)
         # Remove potentially remaining data. We might just have merged

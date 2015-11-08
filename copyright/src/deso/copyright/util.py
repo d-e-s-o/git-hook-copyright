@@ -20,6 +20,24 @@
 """A module providing utility functionality."""
 
 
+# A dictionary used for converting strings into booleans.
+STRING_TO_BOOL_MAP = {
+  "true": True,
+  "false": False,
+}
+
+
+def stringToBool(string):
+  """Convert a string into a boolean."""
+  if not string in STRING_TO_BOOL_MAP:
+    values = listToEnglishEnumeration(list(STRING_TO_BOOL_MAP.keys()))
+    error = "\"{value}\" is not a valid boolean. Possible values are: {values}"
+    error = error.format(value=string, values=values)
+    raise ValueError(error)
+
+  return STRING_TO_BOOL_MAP[string]
+
+
 def listToEnglishEnumeration(l):
   """Convert a list of strings into a single string of the form 'x, y, ..., and z'."""
   assert len(l) > 0

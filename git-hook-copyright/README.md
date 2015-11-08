@@ -99,6 +99,17 @@ make the change affect all repositories managed by the user. E.g.,
 
 ``$ git config --global copyright.policy pad``
 
+By default, the ``git`` pre-commit hook asserts that each file that is
+to be committed contains a copyright header. If that is not the case, an
+error is raised and the commit fails (or some other action is taken, as
+discussed above). This behavior can be altered by setting the
+``copyright.copyright-required`` config option.
+
+``$ git config --bool copyright.copyright-required false``
+
+When set to false (the default is true), files containing no copyright
+header will not be flagged.
+
 
 Support
 -------

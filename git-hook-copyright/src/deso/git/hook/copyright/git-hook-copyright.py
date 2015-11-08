@@ -23,7 +23,11 @@ from deso.copyright import (
   normalizeContent,
   policyStringToFunction,
 )
+from deso.copyright.util import (
+  stringToBool,
+)
 from deso.git.hook.copyright import (
+  KEY_COPYRIGHT_REQUIRED,
   KEY_POLICY,
   SECTION,
 )
@@ -81,6 +85,16 @@ def retrieveNormalizationFunction():
   return policyStringToFunction(policy, RuntimeError)
 
 
+def copyrightHeaderMustExist():
+  """Check whether a copyright header must exist."""
+  required = retrieveConfigValue(KEY_COPYRIGHT_REQUIRED, "--bool")
+  if required is None:
+    # By default we require a copyright header.
+    return True
+
+  return stringToBool(required)
+
+
 def stagedFileContent(path):
   """Retrieve the file content of a file in a git repository including any staged changes."""
   return check_output([GIT, "cat-file", "--textconv", ":%s" % path]).decode("utf-8")
@@ -118,12 +132,12 @@ def normalizeStagedFile(path, normalize_fn):
   # bail out.
   with NamedTemporaryFile(mode="w", prefix=basename(path)) as file_tmp:
     staged_content = stagedFileContent(path)
-    normalized_content = normalize_fn(staged_content)
+    normalized_content, found = normalize_fn(staged_content)
 
     # In many cases we expect the normalization to cause no change to
     # the content. We essentially special-case for that expectation and
     # only cause additional I/O if something truly changed.
-    if normalized_content != staged_content:
+    if found > 0 and normalized_content != staged_content:
       # We need to copy the file of interest from the git repository
       # into some other location.
       with open(path, "r+") as file_git:
@@ -140,17 +154,27 @@ def normalizeStagedFile(path, normalize_fn):
       with open(path, "w") as file_git:
         # Last we need to write back the original content. However, we
         # normalize it as well.
-        file_git.write(normalize_fn(original_content))
+        content, _ = normalize_fn(original_content)
+        file_git.write(content)
         file_git.truncate()
+
+    return found
 
 
 def main():
   """Find all files to commit and normalize them before the commit takes place."""
   normalize_fn = retrieveNormalizationFunction()
+  required = copyrightHeaderMustExist()
 
   for file_git_path in changedFiles():
     try:
-      normalizeStagedFile(file_git_path, normalize_fn)
+      found = normalizeStagedFile(file_git_path, normalize_fn)
+      # If a copyright header is required but we did not find one we
+      # signal that to the user and abort.
+      if required and found <= 0:
+        print("Error: No copyright header found in %s" % file_git_path,
+              file=stderr)
+        exit_(1)
     except UnicodeDecodeError:
       # We may get a decode error in case of a binary file that we
       # simply cannot handle properly. We want to ignore those files

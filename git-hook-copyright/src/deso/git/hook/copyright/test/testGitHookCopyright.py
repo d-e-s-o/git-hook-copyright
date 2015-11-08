@@ -23,6 +23,7 @@ from datetime import (
   datetime,
 )
 from deso.git.hook.copyright import (
+  KEY_COPYRIGHT_REQUIRED,
   KEY_POLICY,
   SECTION,
 )
@@ -44,6 +45,7 @@ from shutil import (
 )
 from subprocess import (
   CalledProcessError,
+  STDOUT,
 )
 from unittest import (
   main,
@@ -169,6 +171,36 @@ class TestGitHook(TestCase):
       copyfile(src, dst)
       repo.add("file.bin")
       repo.commit()
+
+
+  def testCopyrightHeaderRequired(self):
+    """Test that the copyright.copyright-required setting is handled correctly."""
+    def doTest(content, fail, required=None):
+      """Perform a single commit test and check for success or failure."""
+      with GitRepository() as repo:
+        if required is not None:
+          repo.config(SECTION, KEY_COPYRIGHT_REQUIRED, str(required))
+
+        write(repo, "test.c", data=content)
+        repo.add("test.c")
+
+        if fail:
+          with self.assertRaises(CalledProcessError) as e:
+            repo.commit(stderr=STDOUT)
+
+          self.assertIn(b"No copyright header found", e.exception.output)
+        else:
+          repo.commit()
+
+    # If no copyright header is given a commit must fail unless we
+    # explicitly set copyright-required to false.
+    doTest("int main() { return 0; }", True)
+    doTest("int main() { return 0; }", True, required=True)
+    doTest("int main() { return 0; }", False, required=False)
+    # If a copyright header is given a commit must succeed in all cases.
+    doTest("/* Copyright (C) 2015 Daniel Mueller (deso@posteo.net) */", False)
+    doTest("/* Copyright (C) 2015 Daniel Mueller (deso@posteo.net) */", False, required=True)
+    doTest("/* Copyright (C) 2015 Daniel Mueller (deso@posteo.net) */", False, required=False)
 
 
 if __name__ == "__main__":

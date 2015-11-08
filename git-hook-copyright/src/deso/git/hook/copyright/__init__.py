@@ -24,3 +24,6 @@
 SECTION = "copyright"
 # The key used to identify the policy to use.
 KEY_POLICY = "policy"
+# The key identifying the property defining whether a copyright header
+# is required to exist or not.
+KEY_COPYRIGHT_REQUIRED = "copyright-required"

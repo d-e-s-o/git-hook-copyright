@@ -21,6 +21,7 @@
 
 from deso.copyright.util import (
   listToEnglishEnumeration,
+  stringToBool,
 )
 from unittest import (
   main,
@@ -30,6 +31,21 @@ from unittest import (
 
 class TestUtil(TestCase):
   """Tests for the utility functionality."""
+  def testStringToBool(self):
+    """Test the correctness of the stringToBool function."""
+    with self.assertRaises(ValueError):
+      stringToBool("truE")
+    with self.assertRaises(ValueError):
+      stringToBool("False")
+    with self.assertRaises(ValueError):
+      stringToBool("Huhu")
+    with self.assertRaises(ValueError):
+      stringToBool("")
+
+    self.assertTrue(stringToBool("true"))
+    self.assertFalse(stringToBool("false"))
+
+
   def testEnglishEnumerationStringCreation(self):
     """Test for listToEnglishEnumeration with various enumerations."""
     def doTest(list_, expected):
