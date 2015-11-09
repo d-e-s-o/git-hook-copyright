@@ -99,6 +99,26 @@ make the change affect all repositories managed by the user. E.g.,
 
 ``$ git config --global copyright.policy pad``
 
+The policy defines how to normalize a copyright header. However,
+scenarios are possible where making automated changes to the the
+to-be-committed files is not desired.
+
+To that end, the hook supports "actions". Three different actions exist:
+'fixup' (the default), 'check', and 'warn'. Using the 'fixup' action the
+files are modified in-place. If 'check' is active then files will only
+be checked for deficiencies and, if a problem is detected, an error is
+raised. If the 'warn' action is in use then a message will be printed
+upon a commit with a file that's copyright headers do need update but
+the commit will proceed.
+
+Actions can be configured similarly to the policy:
+
+``$ git config --global copyright.action check``
+
+This command would cause the hook to check if all files to commit
+contain properly normalized copyright headers and error out if that is
+not the case.
+
 By default, the ``git`` pre-commit hook asserts that each file that is
 to be committed contains a copyright header. If that is not the case, an
 error is raised and the commit fails (or some other action is taken, as

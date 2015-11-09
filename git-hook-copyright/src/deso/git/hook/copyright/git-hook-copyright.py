@@ -24,9 +24,12 @@ from deso.copyright import (
   policyStringToFunction,
 )
 from deso.copyright.util import (
+  listToEnglishEnumeration,
   stringToBool,
 )
 from deso.git.hook.copyright import (
+  Action,
+  KEY_ACTION,
   KEY_COPYRIGHT_REQUIRED,
   KEY_POLICY,
   SECTION,
@@ -55,6 +58,26 @@ from traceback import (
 GIT = "git"
 
 
+# A dictionary for converting action strings into the proper action
+# types.
+STRING_TO_ACTION_MAP = {
+  str(Action.Fixup): Action.Fixup,
+  str(Action.Check): Action.Check,
+  str(Action.Warn): Action.Warn,
+}
+
+
+def stringToAction(string):
+  """Convert a string into an action type."""
+  if not string in STRING_TO_ACTION_MAP:
+    values = listToEnglishEnumeration(list(STRING_TO_ACTION_MAP.keys()))
+    error = "\"{value}\" is not a valid action. Possible values are: {values}"
+    error = error.format(value=string, values=values)
+    raise ValueError(error)
+
+  return STRING_TO_ACTION_MAP[string]
+
+
 def changedFiles():
   """Retrieve a list of changed files."""
   # We only care for Added (A) and Modified (M) files.
@@ -74,6 +97,16 @@ def retrieveConfigValue(key, *args):
   except CalledProcessError:
     # In case the configuration value is not set we just return None.
     return None
+
+
+def retrieveActionType():
+  """Retrieve the to perform with respect to copyright year normalization."""
+  string = retrieveConfigValue(KEY_ACTION)
+  if string is None:
+    # By default we write out any discrepancies.
+    return Action.Fixup
+
+  return stringToAction(string)
 
 
 def retrieveNormalizationFunction():
@@ -105,7 +138,7 @@ def stageFile(path):
   check_call([GIT, "add", path])
 
 
-def normalizeStagedFile(path, normalize_fn):
+def normalizeStagedFile(path, normalize_fn, action):
   """Normalize a file in a git repository staged for commit."""
   # The procedure for normalizing an already staged file is not as
   # trivial as it might seem at first glance. Things get complicated
@@ -138,6 +171,12 @@ def normalizeStagedFile(path, normalize_fn):
     # the content. We essentially special-case for that expectation and
     # only cause additional I/O if something truly changed.
     if found > 0 and normalized_content != staged_content:
+      if action == Action.Check or action == Action.Warn:
+        print("Copyright years in %s are not properly normalized" % path,
+              file=stderr)
+        if action == Action.Check:
+          exit_(1)
+
       # We need to copy the file of interest from the git repository
       # into some other location.
       with open(path, "r+") as file_git:
@@ -163,12 +202,13 @@ def normalizeStagedFile(path, normalize_fn):
 
 def main():
   """Find all files to commit and normalize them before the commit takes place."""
+  action = retrieveActionType()
   normalize_fn = retrieveNormalizationFunction()
   required = copyrightHeaderMustExist()
 
   for file_git_path in changedFiles():
     try:
-      found = normalizeStagedFile(file_git_path, normalize_fn)
+      found = normalizeStagedFile(file_git_path, normalize_fn, action)
       # If a copyright header is required but we did not find one we
       # signal that to the user and abort.
       if required and found <= 0:

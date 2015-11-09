@@ -23,6 +23,8 @@ from datetime import (
   datetime,
 )
 from deso.git.hook.copyright import (
+  Action,
+  KEY_ACTION,
   KEY_COPYRIGHT_REQUIRED,
   KEY_POLICY,
   SECTION,
@@ -201,6 +203,43 @@ class TestGitHook(TestCase):
     doTest("/* Copyright (C) 2015 Daniel Mueller (deso@posteo.net) */", False)
     doTest("/* Copyright (C) 2015 Daniel Mueller (deso@posteo.net) */", False, required=True)
     doTest("/* Copyright (C) 2015 Daniel Mueller (deso@posteo.net) */", False, required=False)
+
+
+  def testCopyrightAction(self):
+    """Verify that the various actions are handled correctly."""
+    def doTest(action=None):
+      """Test the pre-commit hook for the given action."""
+      content = "// Copyright (C) 1999, 2013"
+      expected = "// Copyright (C) 1999,2013,%d" % YEAR
+
+      with GitRepository() as repo:
+        if action is not None:
+          repo.config(SECTION, KEY_ACTION, str(action))
+
+        write(repo, "test.cpp", data=content)
+        repo.add("test.cpp")
+
+        # By default (no action set), we implicitly use the fixup
+        # action and correct any issues with the copyright header
+        # directly.
+        if action is None or action == Action.Fixup:
+          repo.commit()
+          self.assertEqual(read(repo, "test.cpp"), expected)
+        elif action == Action.Check:
+          with self.assertRaises(CalledProcessError) as e:
+            repo.commit(stderr=STDOUT)
+
+          self.assertIn(b"are not properly normalized", e.exception.output)
+        elif action == Action.Warn:
+          out = repo.commit(stderr=STDOUT)
+          self.assertIn(b"are not properly normalized", out)
+        else:
+          assert False, action
+
+    doTest()
+    doTest(Action.Fixup)
+    doTest(Action.Check)
+    doTest(Action.Warn)
 
 
 if __name__ == "__main__":
