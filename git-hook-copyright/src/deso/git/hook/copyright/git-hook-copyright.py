@@ -133,6 +133,23 @@ def stagedFileContent(path):
   return check_output([GIT, "cat-file", "--textconv", ":%s" % path]).decode("utf-8")
 
 
+def stagedChangesRevertFileContent(path):
+  """Check whether the staged changes revert the changes of the HEAD commit for the given file."""
+  try:
+    # By using the --exit-code option git will return 1 in case the diff
+    # is not empty and 0 if it is.
+    check_call([GIT, "diff", "--staged", "--quiet", "--exit-code", "HEAD^", path])
+    # If the git invocation succeeded the diff was empty and the
+    # currently staged changes for the given file revert the ones made
+    # in the HEAD commit.
+    return True
+  except CalledProcessError:
+    # The diff was not empty or the command failed for some other
+    # reason (e.g., because there is no HEAD^ commit). In any case, we
+    # should go ahead with the commit.
+    return False
+
+
 def stageFile(path):
   """Stage a file in git."""
   check_call([GIT, "add", path])
@@ -207,6 +224,15 @@ def main():
   required = copyrightHeaderMustExist()
 
   for file_git_path in changedFiles():
+    # When amending commits it is possible that all changes to a file
+    # are reverted. In this case we want to omit this file from
+    # normalization because we effectively made no changes to the file
+    # and, hence, we should not touch the copyright header either.
+    # Unfortunately, we have no way of knowing whether we are dealing
+    # with an amendment or a new commit.
+    if stagedChangesRevertFileContent(file_git_path):
+      continue
+
     try:
       found = normalizeStagedFile(file_git_path, normalize_fn, action)
       # If a copyright header is required but we did not find one we

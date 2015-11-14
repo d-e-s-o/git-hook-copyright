@@ -242,5 +242,42 @@ class TestGitHook(TestCase):
     doTest(Action.Warn)
 
 
+  def testChangeReversion(self):
+    """Verify that file change reversals are detected and files exluded from normalization."""
+    with GitRepository() as repo:
+      file_ = "some-file.txt"
+      content1 = "# Copyright (c) 2013 All Right Reserved.\n"
+      content2 = "# This is a comment!"
+      expected1 = "# Copyright (c) 2013,%d All Right Reserved.\n" % YEAR
+
+      write(repo, file_, data=content1)
+      repo.add(file_)
+      # We want to commit the unmodified content (i.e., without
+      # copyright header normalization).
+      repo.commit("--no-verify")
+
+      write(repo, file_, data=content2, truncate=False)
+      repo.add(file_)
+      repo.commit()
+
+      self.assertEqual(read(repo, file_), expected1 + content2)
+
+      # Now we write back the previous content. Once we commit the
+      # change the commit hook should detect that we effectively
+      # reverted the file content and not apply any normalization.
+      write(repo, file_, data=content1)
+      repo.add(file_)
+      # Add another file to the repository in order to not let the
+      # commit become empty (that would not be a problem but it is very
+      # unusual and not the case we want to test here).
+      write(repo, "test.dat", data="# Copyright (c) %d." % YEAR)
+      repo.add("test.dat")
+      repo.commit("--amend")
+
+      # The file must contain the original copyright header and not have
+      # been normalized afterwards.
+      self.assertEqual(read(repo, file_), content1)
+
+
 if __name__ == "__main__":
   main()
