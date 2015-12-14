@@ -19,9 +19,6 @@
 
 """Test suite for the copyright year string normalization script."""
 
-from datetime import (
-  datetime,
-)
 from deso.copyright.normalize import (
   main as normalizeMain,
 )
@@ -34,9 +31,6 @@ from tempfile import (
 from unittest import (
   main,
   TestCase,
-)
-from unittest.mock import (
-  patch,
 )
 
 
@@ -95,6 +89,9 @@ COPYRIGHT_GENTOO_LINE = """\
 """
 COPYRIGHT_GENTOO_LINE_FIXED = """\
 # Copyright 1995-2015 Gentoo Foundation\
+"""
+COPYRIGHT_GENTOO_LINE_FIXED_NO_2015 = """\
+# Copyright 1995-2014 Gentoo Foundation\
 """
 
 COPYRIGHT_DESO_TEMPLATE = """\
@@ -173,7 +170,7 @@ COPYRIGHT_WITH_CONTENT_LINE_FIXED = """\
 
 class TestNormalize(TestCase):
   """Tests for the copyright year string normalization script."""
-  def writeRunReadVerify(self, content, expected, policy=None):
+  def writeRunReadVerify(self, content, expected, policy=None, year=None):
     """Write some data into a temporary file, run normalize, and verify expected result."""
     with NamedTemporaryFile(buffering=0) as f:
       f.write(content.encode("utf-8"))
@@ -182,6 +179,8 @@ class TestNormalize(TestCase):
       argv = [sysargv[0], f.name]
       if policy is not None:
         argv += ["--policy=%s" % policy]
+      if year is not None:
+        argv += ["--year=%d" % year]
 
       normalizeMain(argv)
       self.assertEqual(f.read(), expected.encode("utf-8"))
@@ -199,11 +198,17 @@ class TestNormalize(TestCase):
     CUSTOM = (COPYRIGHT_CUSTOM_TEMPLATE % COPYRIGHT_CUSTOM_LINE,
               COPYRIGHT_CUSTOM_TEMPLATE % COPYRIGHT_CUSTOM_LINE_FIXED)
 
-    with patch("deso.copyright.normalize.datetime", wraps=datetime) as mock_now:
-      mock_now.now.return_value = datetime(2015, 9, 11, 19, 29, 37)
+    for content, expected in (MSFT, VMW, GENTOO, CUSTOM):
+      self.writeRunReadVerify(content, expected, year=2015)
 
-      for content, expected in (MSFT, VMW, GENTOO, CUSTOM):
-        self.writeRunReadVerify(content, expected)
+
+  def testNormalizeCopyrightYearsWithoutExtension(self):
+    """Verify the current year is not included unless wanted."""
+    GENTOO = (COPYRIGHT_GENTOO_TEMPLATE % COPYRIGHT_GENTOO_LINE,
+              COPYRIGHT_GENTOO_TEMPLATE % COPYRIGHT_GENTOO_LINE_FIXED_NO_2015)
+
+    for content, expected in (GENTOO, ):
+      self.writeRunReadVerify(content, expected)
 
 
   def testNormalizeCopyrightYearsInMultipleHeaders(self):
@@ -215,12 +220,9 @@ class TestNormalize(TestCase):
     COPYRIGHT_MULTI_HEADER = "%s\n%s\n" % (MSFT, VMW)
     COPYRIGHT_MULTI_HEADER_FIXED = "%s\n%s\n" % (MSFT_FIXED, VMW_FIXED)
 
-    with patch("deso.copyright.normalize.datetime", wraps=datetime) as mock_now:
-      mock_now.now.return_value = datetime(2015, 9, 11, 22, 21, 58)
-
-      content = COPYRIGHT_MULTI_HEADER
-      expected = COPYRIGHT_MULTI_HEADER_FIXED
-      self.writeRunReadVerify(content, expected)
+    content = COPYRIGHT_MULTI_HEADER
+    expected = COPYRIGHT_MULTI_HEADER_FIXED
+    self.writeRunReadVerify(content, expected, year=2015)
 
 
   def testNormalizeWithPadding(self):
@@ -231,11 +233,8 @@ class TestNormalize(TestCase):
     DESO2 = (COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE2,
              COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE2_FIXED)
 
-    with patch("deso.copyright.normalize.datetime", wraps=datetime) as mock_now:
-      mock_now.now.return_value = datetime(2015, 9, 19, 13, 37, 16)
-
-      for content, expected in (DESO1, DESO2):
-        self.writeRunReadVerify(content, expected, policy="pad")
+    for content, expected in (DESO1, DESO2):
+      self.writeRunReadVerify(content, expected, policy="pad", year=2015)
 
 
   def testNormalizeFileWithContent(self):
@@ -243,10 +242,7 @@ class TestNormalize(TestCase):
     content = COPYRIGHT_WITH_CONTENT % COPYRIGHT_WITH_CONTENT_LINE
     expected = COPYRIGHT_WITH_CONTENT % COPYRIGHT_WITH_CONTENT_LINE_FIXED
 
-    with patch("deso.copyright.normalize.datetime", wraps=datetime) as mock_now:
-      mock_now.now.return_value = datetime(2015, 9, 11, 22, 27, 19)
-
-      self.writeRunReadVerify(content, expected)
+    self.writeRunReadVerify(content, expected, year=2015)
 
 
 if __name__ == "__main__":

@@ -19,6 +19,9 @@
 
 """A pre-commit hook normalizing the copyright year strings of all to-be-committed files."""
 
+from datetime import (
+  datetime,
+)
 from deso.copyright import (
   normalizeContent,
   policyStringToFunction,
@@ -155,7 +158,7 @@ def stageFile(path):
   check_call([GIT, "add", path])
 
 
-def normalizeStagedFile(path, normalize_fn, action):
+def normalizeStagedFile(path, normalize_fn, year, action):
   """Normalize a file in a git repository staged for commit."""
   # The procedure for normalizing an already staged file is not as
   # trivial as it might seem at first glance. Things get complicated
@@ -182,7 +185,7 @@ def normalizeStagedFile(path, normalize_fn, action):
   # bail out.
   with NamedTemporaryFile(mode="w", prefix=basename(path)) as file_tmp:
     staged_content = stagedFileContent(path)
-    normalized_content, found = normalize_fn(staged_content)
+    normalized_content, found = normalize_fn(staged_content, year=year)
 
     # In many cases we expect the normalization to cause no change to
     # the content. We essentially special-case for that expectation and
@@ -210,7 +213,7 @@ def normalizeStagedFile(path, normalize_fn, action):
       with open(path, "w") as file_git:
         # Last we need to write back the original content. However, we
         # normalize it as well.
-        content, _ = normalize_fn(original_content)
+        content, _ = normalize_fn(original_content, year=year)
         file_git.write(content)
         file_git.truncate()
 
@@ -222,6 +225,9 @@ def main():
   action = retrieveActionType()
   normalize_fn = retrieveNormalizationFunction()
   required = copyrightHeaderMustExist()
+  # We always want to extend the copyright year range with the current
+  # year.
+  year = datetime.now().year
 
   for file_git_path in changedFiles():
     # When amending commits it is possible that all changes to a file
@@ -234,7 +240,7 @@ def main():
       continue
 
     try:
-      found = normalizeStagedFile(file_git_path, normalize_fn, action)
+      found = normalizeStagedFile(file_git_path, normalize_fn, year, action)
       # If a copyright header is required but we did not find one we
       # signal that to the user and abort.
       if required and found <= 0:

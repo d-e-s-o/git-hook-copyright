@@ -23,9 +23,6 @@ from argparse import (
   ArgumentParser,
   ArgumentTypeError,
 )
-from datetime import (
-  datetime,
-)
 from deso.copyright.range import (
   Range,
   YEAR_SEPARATOR,
@@ -78,22 +75,18 @@ COPYRIGHT_R = COPYRIGHT.format(p=PREFIX_R, c=CYEARS_R, s=SUFFIX_R)
 COPYRIGHT_RE = regex(COPYRIGHT_R, IGNORECASE)
 
 
-def normalizeContent(content):
+def normalizeContent(content, year=None):
   """Normalize the copyright headers in a string representing a file."""
-  # For our year extension we need the current year.
-  current_year = datetime.now().year
-  # Because we work with ranges we need a range representing the current
-  # year.
-  current_year_range = Range(current_year, current_year)
-
   def normalizeCopyrightYears(match):
     """Parse the copyright year string and normalize it."""
     prefix, range_string, suffix = match.groups()
     ranges = parseRanges(range_string)
     # Not only do we want to normalize the existing copyright year
-    # string, we potentially want to extend it with the current year if
-    # that is not already included.
-    ranges.append(current_year_range)
+    # string, we potentially want to extend it with a given year if that
+    # is not already included.
+    if year is not None:
+      ranges.append(Range(year, year))
+
     normalizeRanges(ranges)
 
     return prefix + stringifyRanges(ranges) + suffix
@@ -101,16 +94,13 @@ def normalizeContent(content):
   return COPYRIGHT_RE.subn(normalizeCopyrightYears, content)
 
 
-def normalizeContentPadded(content):
+def normalizeContentPadded(content, year=None):
   """Normalize the copyright headers in a string representing a file.
 
     This function normalizes the copyright headers in a string. It also
     tries to fix any whitespace paddings, for instance, in case the text
     is framed at a fixed width.
   """
-  current_year = datetime.now().year
-  current_year_range = Range(current_year, current_year)
-
   def removeSpace(_):
     """Replace a two space match with a single space."""
     return " "
@@ -120,7 +110,9 @@ def normalizeContentPadded(content):
     prefix, range_string, suffix = match.groups()
 
     ranges = parseRanges(range_string)
-    ranges.append(current_year_range)
+    if year is not None:
+      ranges.append(Range(year, year))
+
     normalizeRanges(ranges)
 
     new_range_string = stringifyRanges(ranges)
@@ -144,12 +136,12 @@ def normalizeContentPadded(content):
   return COPYRIGHT_RE.subn(normalizeCopyrightYearsPadded, content)
 
 
-def normalizeFiles(files, normalize_fn=normalizeContent):
+def normalizeFiles(files, normalize_fn=normalizeContent, year=None):
   """Normalize the copyright headers of a list of files."""
   for file_ in files:
     with open(file_, "r+") as f:
       content = f.read()
-      new_content, found = normalize_fn(content)
+      new_content, found = normalize_fn(content, year=year)
       if found > 0 and new_content != content:
         f.seek(0)
         f.write(new_content)
@@ -193,6 +185,12 @@ def setupArgumentParser():
          "normalization is performed. Available options are: %s." %
          listToEnglishEnumeration(list(POLICY_MAP.keys())),
   )
+  parser.add_argument(
+    "--year", action="store", default=None, metavar="year", type=int,
+    help="Specify a year to extend the copyright year range by. By "
+         "default the copyright years are just normalizaed, not "
+         "extended.",
+  )
   return parser
 
 
@@ -201,7 +199,7 @@ def main(argv):
   parser = setupArgumentParser()
   ns = parser.parse_args(argv[1:])
 
-  normalizeFiles(ns.files, normalize_fn=ns.normalization_fn)
+  normalizeFiles(ns.files, normalize_fn=ns.normalization_fn, year=ns.year)
   return 0
 
 
