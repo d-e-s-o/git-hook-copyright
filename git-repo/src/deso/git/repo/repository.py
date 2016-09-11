@@ -19,18 +19,20 @@
 
 """Git repository functionality for Python."""
 
+from deso.execute import (
+  execute,
+)
 from os import (
   chdir,
-  devnull,
   environ,
   getcwd,
 )
 from os.path import (
+  commonprefix,
   join,
 )
-from subprocess import (
-  check_output,
-  DEVNULL,
+from re import (
+  sub,
 )
 from tempfile import (
   TemporaryDirectory,
@@ -52,6 +54,38 @@ def read(repo, *components):
     return f.read()
 
 
+class PathMixin:
+  """A mixin inheriting the PATH environment variable to all executed git commands."""
+  @staticmethod
+  def inheritEnv(env):
+    """Inherit the PATH environment variable into the given environment."""
+    env["PATH"] = environ["PATH"]
+
+
+  def git(self, *args, **kwargs):
+    """Run a git command, taking care to inherit the PATH environment variable."""
+    env = kwargs.setdefault("env", {})
+    PathMixin.inheritEnv(env)
+
+    return super().git(*args, **kwargs)
+
+
+class PythonMixin:
+  """A mixin inheriting PYTHON* environment variables to all executed git commands."""
+  @staticmethod
+  def inheritEnv(env):
+    """Inherit all PYTHON* environment variables into the given environment."""
+    env.update(filter(lambda x: x[0].startswith("PYTHON"), environ.items()))
+
+
+  def git(self, *args, **kwargs):
+    """Run a git command, taking care to inherit all PYTHON* environment variables."""
+    env = kwargs.setdefault("env", {})
+    PythonMixin.inheritEnv(env)
+
+    return super().git(*args, **kwargs)
+
+
 class Repository:
   """Objects of this class represent a git repository."""
   def __init__(self, git):
@@ -66,58 +100,44 @@ class Repository:
     def changeDir(self, *args, **kwargs):
       """Change the current directory, invoke the decorated function, and revert the change."""
       cwd = getcwd()
-      chdir(self._directory.name)
-      try:
+      git_dir = self._directory.name
+
+      # We only want to change the current working directory into the
+      # git repository if we are not already *somewhere* in the git
+      # repository. This behavior is useful for testing correct
+      # treatment of relative paths.
+      if commonprefix([cwd, git_dir]) != git_dir:
+        chdir(git_dir)
+        try:
+          return function(self, *args, **kwargs)
+        finally:
+          chdir(cwd)
+      else:
         return function(self, *args, **kwargs)
-      finally:
-        chdir(cwd)
 
     return changeDir
 
 
-  def unsetHome(function):
-    """Decorator to unset the "HOME" environment variable."""
-    # TODO: Our approach of unsetting HOME works but is not side-effect
-    #       free from the point of view of other programs. In fact, it
-    #       might lead to hard-to-debug problems when concurrently run
-    #       programs have no HOME. What we need instead is the ability
-    #       to execute programs in an empty environment or at least in a
-    #       customized one.
-    def clearHome(self, *args, **kwargs):
-      home = environ["HOME"]
-      # We unset HOME because we do not want git to read custom
-      # configuration (~/.gitconfig). We likely have no way of prohibitting
-      # reading of a more global configuration (somewhere in /etc/) so
-      # we have to live with that.
-      # The rationale is that although git prohibits redefining (aliasing)
-      # existing primitives (such as 'add' or 'commit'), the user might have
-      # enabled something like signing of commits. That could break the
-      # batch processing requirement of the test because the user might have
-      # to input a password or such.
-      # We do not expect anyone to check or modify HOME subsequently. So
-      # unsetting it once for the module should be enough.
-      environ["HOME"] = devnull
-      try:
-        return function(self, *args, **kwargs)
-      finally:
-        environ["HOME"] = home
-
-    return clearHome
-
-
-  @unsetHome
   @autoChangeDir
   def git(self, *args, **kwargs):
     """Run a git command."""
-    if "stderr" not in kwargs:
-      kwargs["stderr"] = DEVNULL
+    # If not requested otherwise we always start git with an empty
+    # environment. We do not want any of the global/user-specific
+    # configuration to have effect on the commands.
+    kwargs.setdefault("env", {})
 
-    return check_output([self._git] + list(args), **kwargs)
+    return execute(self._git, *args, **kwargs)
 
 
   def __getattr__(self, name):
     """Invoke a git command."""
-    return lambda *args, **kwargs: self.git(name, *args, **kwargs)
+    def replace(match):
+      """Replace an upper case char with a dash followed by a lower case version of it."""
+      s, = match.groups()
+      return "-%s" % s.lower()
+
+    command = sub("([A-Z])", replace, name)
+    return lambda *args, **kwargs: self.git(command, *args, **kwargs)
 
 
   def _init(self, *args, init_user=True, **kwargs):

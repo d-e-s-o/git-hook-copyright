@@ -1,4 +1,4 @@
-# Makefile
+# util.py
 
 #/***************************************************************************
 # *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
@@ -17,10 +17,30 @@
 # *   along with this program.  If not, see <http://www.gnu.org/licenses/>. *
 # ***************************************************************************/
 
+"""Utility functionality related to command execution."""
 
-.PHONY: test
-test: ROOT := $(shell pwd)/..
-test:
-	@PYTHONPATH="$(ROOT)/cleanup/src:$(ROOT)/execute/src:$(ROOT)/git-repo/src:${PYTHONPATH}"\
-	 PYTHONDONTWRITEBYTECODE=1\
-		python -m unittest --verbose --buffer deso.git.repo.test.allTests
+from os import (
+  environ,
+  pathsep,
+)
+from os.path import (
+  isfile,
+  join,
+)
+
+
+def findCommand(name):
+  """Given a name, find the path to a command."""
+  try:
+    path = environ["PATH"]
+  except KeyError:
+    raise EnvironmentError("Unable to find PATH variable")
+
+  dirs = path.split(pathsep)
+
+  for d in dirs:
+    f = join(d, name)
+    if isfile(f):
+      return f
+
+  raise FileNotFoundError("No command named '%s' found in PATH (%s)" % (name, path))

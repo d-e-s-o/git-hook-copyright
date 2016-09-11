@@ -27,7 +27,9 @@ Installation
 ------------
 
 In order to use **git-hook-copyright** the
-[copyright](https://github.com/d-e-s-o/copyright) Python module
+[cleanup](https://github.com/d-e-s-o/cleanup),
+[execute](https://github.com/d-e-s-o/execute), and
+[copyright](https://github.com/d-e-s-o/copyright) Python modules
 (contained in the repository in compatible and tested versions) need to
 be accessible by Python (typically by installing them in a directory
 listed in ``PYTHONPATH`` or adjusting the latter to point to each of

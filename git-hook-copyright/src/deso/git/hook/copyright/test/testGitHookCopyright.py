@@ -22,6 +22,10 @@
 from datetime import (
   datetime,
 )
+from deso.execute import (
+  findCommand,
+  ProcessError,
+)
 from deso.git.hook.copyright import (
   Action,
   KEY_ACTION,
@@ -30,6 +34,8 @@ from deso.git.hook.copyright import (
   SECTION,
 )
 from deso.git.repo import (
+  PathMixin,
+  PythonMixin,
   read,
   Repository,
   write,
@@ -43,24 +49,18 @@ from os.path import (
 )
 from shutil import (
   copyfile,
-  which,
-)
-from subprocess import (
-  CalledProcessError,
-  STDOUT,
 )
 from unittest import (
   main,
-  SkipTest,
   TestCase,
 )
 
 
-GIT = "git"
+GIT = findCommand("git")
 YEAR = datetime.now().year
 
 
-class GitRepository(Repository):
+class GitRepository(PathMixin, PythonMixin, Repository):
   """A git repository with the copyright hook installed."""
   def __init__(self):
     """Initialize the parent portion of the object."""
@@ -82,12 +82,6 @@ class GitRepository(Repository):
     chmod(dst, 0o755)
 
 
-def setUpModule():
-  """Setup function invoked when loading the module."""
-  if which(GIT) is None:
-    raise SkipTest("%s command not found on system" % GIT)
-
-
 class TestGitHook(TestCase):
   """Test for the git pre-commit hook normalizing copyright year strings."""
   def testInvalidPolicyIsComplainedAbout(self):
@@ -97,7 +91,7 @@ class TestGitHook(TestCase):
       write(repo, "foo.cpp", data="")
       repo.add("foo.cpp")
 
-      with self.assertRaises(CalledProcessError):
+      with self.assertRaises(ProcessError):
         repo.commit()
 
 
@@ -187,10 +181,9 @@ class TestGitHook(TestCase):
         repo.add("test.c")
 
         if fail:
-          with self.assertRaises(CalledProcessError) as e:
-            repo.commit(stderr=STDOUT)
-
-          self.assertIn(b"No copyright header found", e.exception.output)
+          regex = r"No copyright header found"
+          with self.assertRaisesRegex(ProcessError, regex):
+            repo.commit()
         else:
           repo.commit()
 
@@ -219,6 +212,7 @@ class TestGitHook(TestCase):
         write(repo, "test.cpp", data=content)
         repo.add("test.cpp")
 
+        regex = r"are not properly normalized"
         # By default (no action set), we implicitly use the fixup
         # action and correct any issues with the copyright header
         # directly.
@@ -226,13 +220,11 @@ class TestGitHook(TestCase):
           repo.commit()
           self.assertEqual(read(repo, "test.cpp"), expected)
         elif action == Action.Check:
-          with self.assertRaises(CalledProcessError) as e:
-            repo.commit(stderr=STDOUT)
-
-          self.assertIn(b"are not properly normalized", e.exception.output)
+          with self.assertRaisesRegex(ProcessError, regex):
+            repo.commit()
         elif action == Action.Warn:
-          out = repo.commit(stderr=STDOUT)
-          self.assertIn(b"are not properly normalized", out)
+          _, err = repo.commit()
+          self.assertIn(b"are not properly normalized", err)
         else:
           assert False, action
 

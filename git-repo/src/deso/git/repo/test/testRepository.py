@@ -19,10 +19,21 @@
 
 """Test for the git repository Python wrapper."""
 
+from deso.execute import (
+  findCommand,
+)
 from deso.git.repo import (
   read,
   Repository,
   write,
+)
+from os import (
+  chdir,
+  getcwd,
+  mkdir,
+)
+from os.path import (
+  join,
 )
 from unittest import (
   main,
@@ -30,7 +41,7 @@ from unittest import (
 )
 
 
-GIT = "git"
+GIT = findCommand("git")
 
 
 class TestRepository(TestCase):
@@ -74,6 +85,38 @@ class TestRepository(TestCase):
 
       self.assertEqual(read(app, "lib.py"), read(lib, "lib.py"))
       self.assertEqual(read(app, "other.dat"), read(lib, "other.dat"))
+
+
+  def testOutput(self):
+    """Verify that we can retrieve a command's standard output contents."""
+    with Repository(GIT) as foo:
+      write(foo, "foo.c", data="// foo.c")
+      foo.add("foo.c")
+      foo.commit()
+
+      # We also verify here that we can invoke a git command containing
+      # a dash (rev-parse in this case).
+      sha1, _ = foo.revParse("HEAD", stdout=b"")
+      self.assertRegex(sha1[:-1].decode("utf-8"), "[0-9a-f]{40}")
+
+
+  def testChdir(self):
+    """Verify that we do not change the working directory if already in the git repo."""
+    with Repository(GIT) as foo:
+      cwd = getcwd()
+      dir_ = foo.path("test")
+
+      mkdir(dir_)
+      write(foo, join(dir_, "test_file"), data="data")
+
+      chdir(dir_)
+      try:
+        # Add a path relative to the current working directory.
+        foo.add("test_file")
+        foo.commit()
+        self.assertEqual(getcwd(), dir_)
+      finally:
+        chdir(cwd)
 
 
 if __name__ == "__main__":

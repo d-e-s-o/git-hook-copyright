@@ -21,6 +21,6 @@
 .PHONY: test
 test: ROOT := $(shell pwd)/..
 test:
-	@PYTHONPATH="$(ROOT)/copyright/src:$(ROOT)/git-repo/src:$(ROOT)/git-hook-copyright/src:${PYTHONPATH}"\
+	@PYTHONPATH="$(ROOT)/cleanup/src:$(ROOT)/execute/src:$(ROOT)/copyright/src:$(ROOT)/git-repo/src:$(ROOT)/git-hook-copyright/src:${PYTHONPATH}"\
 	 PYTHONDONTWRITEBYTECODE=1\
 		python -m unittest --verbose --buffer deso.git.hook.copyright.test.allTests

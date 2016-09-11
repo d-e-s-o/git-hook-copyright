@@ -30,6 +30,11 @@ from deso.copyright.util import (
   listToEnglishEnumeration,
   stringToBool,
 )
+from deso.execute import (
+  execute,
+  findCommand,
+  ProcessError,
+)
 from deso.git.hook.copyright import (
   Action,
   KEY_ACTION,
@@ -39,11 +44,6 @@ from deso.git.hook.copyright import (
 )
 from os.path import (
   basename,
-)
-from subprocess import (
-  CalledProcessError,
-  check_call,
-  check_output,
 )
 from sys import (
   exit as exit_,
@@ -58,7 +58,7 @@ from traceback import (
 
 
 # The command for invoking git.
-GIT = "git"
+GIT = findCommand("git")
 
 
 # A dictionary for converting action strings into the proper action
@@ -85,7 +85,7 @@ def changedFiles():
   """Retrieve a list of changed files."""
   # We only care for Added (A) and Modified (M) files.
   cmd = [GIT, "diff", "--staged", "--name-only", "--diff-filter=AM", "--no-color", "--no-prefix"]
-  out = check_output(cmd)
+  out, _ = execute(*cmd, stdout=b"")
   return out.decode("utf-8").splitlines()
 
 
@@ -93,17 +93,18 @@ def retrieveConfigValue(key, *args):
   """Retrieve a git configuration value associated with a key."""
   try:
     name = "%s.%s" % (SECTION, key)
-    out = check_output([GIT, "config", "--null"] + list(args) + [name])
+    cmd = [GIT, "config", "--null"] + list(args) + [name]
+    out, _ = execute(*cmd, stdout=b"")
     # The output is guaranteed to be terminated by a NUL byte. We want
     # to discard that.
     return out[:-1].decode("utf-8")
-  except CalledProcessError:
+  except ProcessError:
     # In case the configuration value is not set we just return None.
     return None
 
 
 def retrieveActionType():
-  """Retrieve the to perform with respect to copyright year normalization."""
+  """Retrieve the action to perform with respect to copyright year normalization."""
   string = retrieveConfigValue(KEY_ACTION)
   if string is None:
     # By default we write out any discrepancies.
@@ -133,7 +134,8 @@ def copyrightHeaderMustExist():
 
 def stagedFileContent(path):
   """Retrieve the file content of a file in a git repository including any staged changes."""
-  return check_output([GIT, "cat-file", "--textconv", ":%s" % path]).decode("utf-8")
+  out, _ = execute(GIT, "cat-file", "--textconv", ":%s" % path, stdout=b"")
+  return out.decode("utf-8")
 
 
 def stagedChangesRevertFileContent(path):
@@ -141,12 +143,12 @@ def stagedChangesRevertFileContent(path):
   try:
     # By using the --exit-code option git will return 1 in case the diff
     # is not empty and 0 if it is.
-    check_call([GIT, "diff", "--staged", "--quiet", "--exit-code", "HEAD^", path])
+    execute(GIT, "diff", "--staged", "--quiet", "--exit-code", "HEAD^", path)
     # If the git invocation succeeded the diff was empty and the
     # currently staged changes for the given file revert the ones made
     # in the HEAD commit.
     return True
-  except CalledProcessError:
+  except ProcessError:
     # The diff was not empty or the command failed for some other
     # reason (e.g., because there is no HEAD^ commit). In any case, we
     # should go ahead with the commit.
@@ -155,7 +157,7 @@ def stagedChangesRevertFileContent(path):
 
 def stageFile(path):
   """Stage a file in git."""
-  check_call([GIT, "add", path])
+  execute(GIT, "add", path)
 
 
 def normalizeStagedFile(path, normalize_fn, year, action):
