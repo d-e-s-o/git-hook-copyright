@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015-2016 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -95,6 +95,8 @@ class TestRanges(TestCase):
                                 Range(2013, 2013),
                                 Range(2014, 2014)])
     doTest("2013-2015,2011-2013", [Range(2013, 2015), Range(2011, 2013)])
+    # A trailing separator should just be ignored.
+    doTest("2011-2012,", [Range(2011, 2012)])
 
 
   def testParseRangesFailures(self):

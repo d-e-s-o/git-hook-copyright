@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015,2017 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -170,7 +170,8 @@ COPYRIGHT_WITH_CONTENT_LINE_FIXED = """\
 
 class TestNormalize(TestCase):
   """Tests for the copyright year string normalization script."""
-  def writeRunReadVerify(self, content, expected, policy=None, year=None):
+  def writeRunReadVerify(self, content, expected, policy=None,
+                         year=None, ignore=None):
     """Write some data into a temporary file, run normalize, and verify expected result."""
     with NamedTemporaryFile(buffering=0) as f:
       f.write(content.encode("utf-8"))
@@ -181,6 +182,8 @@ class TestNormalize(TestCase):
         argv += ["--policy=%s" % policy]
       if year is not None:
         argv += ["--year=%d" % year]
+      if ignore is not None:
+        argv += ["--ignore=%s" % s for s in ignore]
 
       normalizeMain(argv)
       self.assertEqual(f.read(), expected.encode("utf-8"))
@@ -243,6 +246,37 @@ class TestNormalize(TestCase):
     expected = COPYRIGHT_WITH_CONTENT % COPYRIGHT_WITH_CONTENT_LINE_FIXED
 
     self.writeRunReadVerify(content, expected, year=2015)
+
+
+  def testNormalizeFileWithIgnore(self):
+    """Verify that ignoring certain matches works correctly."""
+    ignore = ["VMware"]
+    content = COPYRIGHT_VMW_TEMPLATE % COPYRIGHT_VMW_LINE
+    # No replacement should happen because the only copyright header is
+    # blacklisted.
+    expected = content
+
+    self.writeRunReadVerify(content, expected, year=2017, ignore=ignore)
+
+
+  def testNormalizeFileWithMultipleIgnores(self):
+    """Verify that multiple elements can be ignored."""
+    ignore = [
+      r"Copyright 20.*Gentoo",
+      r"VMware,[ ]+Inc\.",
+    ]
+    content = "\n".join([
+      COPYRIGHT_VMW_TEMPLATE % COPYRIGHT_VMW_LINE,
+      COPYRIGHT_GENTOO_TEMPLATE % COPYRIGHT_GENTOO_LINE,
+      COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE2,
+    ])
+    expected = "\n".join([
+      COPYRIGHT_VMW_TEMPLATE % COPYRIGHT_VMW_LINE,
+      COPYRIGHT_GENTOO_TEMPLATE % COPYRIGHT_GENTOO_LINE,
+      COPYRIGHT_DESO_TEMPLATE % COPYRIGHT_DESO_LINE2_FIXED,
+    ])
+
+    self.writeRunReadVerify(content, expected, policy="pad", year=2015, ignore=ignore)
 
 
 if __name__ == "__main__":

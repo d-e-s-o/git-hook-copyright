@@ -1,7 +1,7 @@
 # normalize.py
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015-2017 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -40,6 +40,7 @@ from re import (
   compile as regex,
   escape,
   IGNORECASE,
+  search,
 )
 from sys import (
   argv as sysargv,
@@ -57,8 +58,9 @@ TWO_SPACES_RE = regex(r"  ")
 YEAR_R = r"[0-9]+"
 YEAR_SEP_R = escape(YEAR_SEPARATOR)
 RANGES_SEP_R = escape(RANGES_SEPARATOR)
-# A regular expression string representing copyright years.
-CYEARS = r"{y}(?:\s*[{s1}{s2}]\s*{y})*"
+# A regular expression string representing copyright years. Note that we
+# consume any trailing range separators here silently.
+CYEARS = r"{y}(?:\s*[{s1}{s2}]\s*{y})*{s2}*"
 CYEARS_R = CYEARS.format(y=YEAR_R, s1=YEAR_SEP_R, s2=RANGES_SEP_R)
 PREFIX = r"copyright(?:{a}(?!{c}))*{a}"
 PREFIX_R = PREFIX.format(a=ANY_R, c=CYEARS_R)
@@ -75,7 +77,48 @@ COPYRIGHT_R = COPYRIGHT.format(p=PREFIX_R, c=CYEARS_R, s=SUFFIX_R)
 COPYRIGHT_RE = regex(COPYRIGHT_R, IGNORECASE)
 
 
-def normalizeContent(content, year=None):
+def _matchesIgnoreList(string, ignore=None):
+  """Check if a string is matched by an element in the ignore list."""
+  if ignore is None:
+    return False
+
+  for item in ignore:
+    m = search(item, string)
+    if m is not None:
+      return True
+
+  return False
+
+
+def _normalizeContent(content, normalize_fn, ignore=None):
+  """Normalize the copyright headers in a string using the given function."""
+  pos = 0
+  found = 0
+
+  while True:
+    match = COPYRIGHT_RE.search(content, pos=pos)
+    if match is None:
+      # We have scanned the entire content and there are no more
+      # matches.
+      return content, found
+
+    start = match.start()
+    end = match.end()
+    pos = end
+    string = match.string[start:end]
+    if _matchesIgnoreList(string, ignore):
+      # The string is on the ignore list. Just continue with the next
+      # occurrence.
+      continue
+
+    replacement, matched = COPYRIGHT_RE.subn(normalize_fn, string, count=1)
+    assert matched == 1
+
+    content = content[:start] + replacement + content[end:]
+    found += matched
+
+
+def normalizeContent(content, year=None, ignore=None):
   """Normalize the copyright headers in a string representing a file."""
   def normalizeCopyrightYears(match):
     """Parse the copyright year string and normalize it."""
@@ -91,10 +134,11 @@ def normalizeContent(content, year=None):
 
     return prefix + stringifyRanges(ranges) + suffix
 
-  return COPYRIGHT_RE.subn(normalizeCopyrightYears, content)
+  return _normalizeContent(content, normalizeCopyrightYears,
+                           ignore=ignore)
 
 
-def normalizeContentPadded(content, year=None):
+def normalizeContentPadded(content, year=None, ignore=None):
   """Normalize the copyright headers in a string representing a file.
 
     This function normalizes the copyright headers in a string. It also
@@ -133,15 +177,16 @@ def normalizeContentPadded(content, year=None):
 
     return prefix + new_range_string + new_suffix
 
-  return COPYRIGHT_RE.subn(normalizeCopyrightYearsPadded, content)
+  return _normalizeContent(content, normalizeCopyrightYearsPadded,
+                           ignore=ignore)
 
 
-def normalizeFiles(files, normalize_fn=normalizeContent, year=None):
+def normalizeFiles(files, normalize_fn=normalizeContent, year=None, ignore=None):
   """Normalize the copyright headers of a list of files."""
   for file_ in files:
     with open(file_, "r+") as f:
       content = f.read()
-      new_content, found = normalize_fn(content, year=year)
+      new_content, found = normalize_fn(content, year=year, ignore=ignore)
       if found > 0 and new_content != content:
         f.seek(0)
         f.write(new_content)
@@ -191,6 +236,13 @@ def setupArgumentParser():
          "default the copyright years are just normalizaed, not "
          "extended.",
   )
+  parser.add_argument(
+    "--ignore", action="append", default=[], metavar="ignore",
+    help="Ignore copyright headers matching a certain pattern. That is, "
+         "if a copyright " "replacement is about to be made it will be "
+         "cancelled if the very match also matches the pattern provided "
+         "via this argment. This option can be supplied multiple times.",
+  )
   return parser
 
 
@@ -199,7 +251,8 @@ def main(argv):
   parser = setupArgumentParser()
   ns = parser.parse_args(argv[1:])
 
-  normalizeFiles(ns.files, normalize_fn=ns.normalization_fn, year=ns.year)
+  normalizeFiles(ns.files, normalize_fn=ns.normalization_fn,
+                 year=ns.year, ignore=ns.ignore)
   return 0
 
 

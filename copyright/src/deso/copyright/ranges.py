@@ -1,7 +1,7 @@
 # ranges.py
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015-2016 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -34,7 +34,7 @@ def parseRanges(ranges_string):
   # the individual years/ranges, so strip each supposed range string
   # before trying to parse it.
   ranges_string_list = map(str.strip, ranges_string.split(RANGES_SEPARATOR))
-  return list(map(Range.parse, ranges_string_list))
+  return list(map(Range.parse, filter(lambda x: len(x) > 0, ranges_string_list)))
 
 
 def normalizeRanges(ranges):
