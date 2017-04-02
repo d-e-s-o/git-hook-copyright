@@ -1,7 +1,7 @@
 # __init__.py
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015,2017 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -30,6 +30,8 @@ SECTION = "copyright"
 # automatically normalize the copyright years in files, warn if a
 # header is not normalized, or error out if that is the case.
 KEY_ACTION = "action"
+# The key used to identify the list of patterns to ignore.
+KEY_IGNORE = "ignore"
 # The key used to identify the policy to use.
 KEY_POLICY = "policy"
 # The key identifying the property defining whether a copyright header

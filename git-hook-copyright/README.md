@@ -78,17 +78,23 @@ would not overwrite such files.
 Configuration
 -------------
 
-The ``git`` pre-commit hook supports different policies. The policy to
-use is defined using the configuration infrastructure provided by
-``git``. Hence, configuration can happen on a per-repository basis or
+The ``git`` pre-commit hook can be customized in a couple of ways to
+make it more suitable for the respective workflow or environment.
+Customization is achieved via the configuration infrastructure provided
+by ``git`` and, hence, can be controlled on a per-repository basis or
 globally (similar to the installation).
 
-The pre-commit hook reads the ``copyright.policy`` configuration value.
-The expected value is a string that represents the policy to use.
-Currently, two policies are supported: The 'plain' policy (which is the
-default and used when no configuration value is set) performs
-normalization and adjusts the copyright years to include the current
-one. The 'pad' policy acts similarly but in addition is able to handle
+
+#### Policies
+The hook script supports different policies that influence the behavior
+during a commit of files that were found to have non-normalized
+copyright headers. The pre-commit hook reads the ``copyright.policy``
+configuration value. The expected value is a string that represents the
+policy to use. Currently, two policies are supported: The 'plain' policy
+(which is the default and used when no configuration value is set)
+performs normalization and adjusts the copyright years to include the
+current one.
+The 'pad' policy acts similarly but in addition is able to handle
 "framed" copyright headers, i.e., ones that are padded with whitespaces
 (followed by other characters).
 
@@ -101,6 +107,8 @@ make the change affect all repositories managed by the user. E.g.,
 
 ``$ git config --global copyright.policy pad``
 
+
+#### Actions
 The policy defines how to normalize a copyright header. However,
 scenarios are possible where making automated changes to the the
 to-be-committed files is not desired.
@@ -121,6 +129,8 @@ This command would cause the hook to check if all files to commit
 contain properly normalized copyright headers and error out if that is
 not the case.
 
+
+#### Optional Copyrights
 By default, the ``git`` pre-commit hook asserts that each file that is
 to be committed contains a copyright header. If that is not the case, an
 error is raised and the commit fails (or some other action is taken, as
@@ -131,6 +141,33 @@ discussed above). This behavior can be altered by setting the
 
 When set to false (the default is true), files containing no copyright
 header will not be flagged.
+
+
+#### Ignoring Headers
+Repositories may contain files contributed by other copyright holders.
+The result may be multiple copyright headers representing the various
+parties. In such a scenario only one header should be adjusted when new
+changes are checked-in.
+
+The copyright hook uses a simple pattern matching approach for lines
+containing the string "Copyright" to decide what lines constitute a
+copyright header. However, it is possible to filter such matches against
+a set of user-provided "ignore" patterns. If one of these patterns
+matches, the copyright header is ignored.
+
+These "ignore" patterns can be configured by means of the
+``copyright.ignore`` config option, which may appear multiple times to
+support multiple patterns as well as a mixture of local and global
+configurations.
+
+For example, a setting like:
+
+``$ git config --add copyright.ignore 'deso@posteo\.[^ ]+'``
+
+would cause the hook to ignore all copyright headers that contain the
+string "deso@posteo." followed by a non-zero number of non-space
+characters. Note that patterns have to be specified in accordance to
+Python's regular expression engine.
 
 
 Support

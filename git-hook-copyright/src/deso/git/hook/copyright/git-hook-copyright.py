@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015,2017 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -39,6 +39,7 @@ from deso.git.hook.copyright import (
   Action,
   KEY_ACTION,
   KEY_COPYRIGHT_REQUIRED,
+  KEY_IGNORE,
   KEY_POLICY,
   SECTION,
 )
@@ -113,6 +114,15 @@ def retrieveActionType():
   return stringToAction(string)
 
 
+def retrieveIgnoreList():
+  """Retrieve the list of patterns to ignore."""
+  ignore = retrieveConfigValue(KEY_IGNORE, "--get-all")
+  if ignore is None:
+    return None
+
+  return ignore.split("\0")
+
+
 def retrieveNormalizationFunction():
   """Retrieve the normalization policy set for the repository."""
   policy = retrieveConfigValue(KEY_POLICY)
@@ -160,7 +170,7 @@ def stageFile(path):
   execute(GIT, "add", path)
 
 
-def normalizeStagedFile(path, normalize_fn, year, action):
+def normalizeStagedFile(path, normalize_fn, year, action, ignore=None):
   """Normalize a file in a git repository staged for commit."""
   # The procedure for normalizing an already staged file is not as
   # trivial as it might seem at first glance. Things get complicated
@@ -187,7 +197,8 @@ def normalizeStagedFile(path, normalize_fn, year, action):
   # bail out.
   with NamedTemporaryFile(mode="w", prefix=basename(path)) as file_tmp:
     staged_content = stagedFileContent(path)
-    normalized_content, found = normalize_fn(staged_content, year=year)
+    normalized_content, found = normalize_fn(staged_content, year=year,
+                                             ignore=ignore)
 
     # In many cases we expect the normalization to cause no change to
     # the content. We essentially special-case for that expectation and
@@ -215,7 +226,7 @@ def normalizeStagedFile(path, normalize_fn, year, action):
       with open(path, "w") as file_git:
         # Last we need to write back the original content. However, we
         # normalize it as well.
-        content, _ = normalize_fn(original_content, year=year)
+        content, _ = normalize_fn(original_content, year=year, ignore=ignore)
         file_git.write(content)
         file_git.truncate()
 
@@ -225,6 +236,7 @@ def normalizeStagedFile(path, normalize_fn, year, action):
 def main():
   """Find all files to commit and normalize them before the commit takes place."""
   action = retrieveActionType()
+  ignore = retrieveIgnoreList()
   normalize_fn = retrieveNormalizationFunction()
   required = copyrightHeaderMustExist()
   # We always want to extend the copyright year range with the current
@@ -242,7 +254,8 @@ def main():
       continue
 
     try:
-      found = normalizeStagedFile(file_git_path, normalize_fn, year, action)
+      found = normalizeStagedFile(file_git_path, normalize_fn, year,
+                                  action, ignore=ignore)
       # If a copyright header is required but we did not find one we
       # signal that to the user and abort.
       if required and found <= 0:

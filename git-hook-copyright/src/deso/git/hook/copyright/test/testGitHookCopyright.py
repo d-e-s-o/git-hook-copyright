@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #/***************************************************************************
-# *   Copyright (C) 2015 Daniel Mueller (deso@posteo.net)                   *
+# *   Copyright (C) 2015,2017 Daniel Mueller (deso@posteo.net)              *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -30,6 +30,7 @@ from deso.git.hook.copyright import (
   Action,
   KEY_ACTION,
   KEY_COPYRIGHT_REQUIRED,
+  KEY_IGNORE,
   KEY_POLICY,
   SECTION,
 )
@@ -269,6 +270,34 @@ class TestGitHook(TestCase):
       # The file must contain the original copyright header and not have
       # been normalized afterwards.
       self.assertEqual(read(repo, file_), content1)
+
+
+  def testIgnore(self):
+    """Verify that copyright.ignore setting is handled correctly."""
+    with GitRepository() as repo:
+      content = """\
+        * Copyright (C) 2010,2011,2012,2013 foo                *
+        * Copyright (C) 2013,2014 bar                          *
+        * Copyright (C) 2013,2014 baz                          *
+        * Copyright (C) 2010 Daniel Mueller (deso@posteo.net)  *
+      """
+      expected = """\
+        * Copyright (C) 2010,2011,2012,2013 foo                *
+        * Copyright (C) 2013,2014 bar                          *
+        * Copyright (C) 2013-2014,%d baz                     *
+        * Copyright (C) 2010 Daniel Mueller (deso@posteo.net)  *
+      """ % YEAR
+      repo.config(SECTION, KEY_IGNORE, r"foo", "--add")
+      repo.config(SECTION, KEY_IGNORE, r"bar", "--add")
+      repo.config(SECTION, KEY_IGNORE, r"deso@posteo\.[^ ]+", "--add")
+      repo.config(SECTION, KEY_POLICY, r"pad")
+
+      write(repo, "copyright.py", data=content)
+      repo.add("copyright.py")
+      repo.commit()
+
+      new_content = read(repo, "copyright.py")
+      self.assertEqual(new_content, expected)
 
 
 if __name__ == "__main__":
