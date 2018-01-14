@@ -45,34 +45,21 @@ initialization file to include the path the module resides at or the
 module could be copied into one of the folders searched by default.
 
 Second, the ``git`` commit hook needs to be installed. Installation can
-either happen on a local, i.e., per-repository, basis or globally. A
-local installation is as simple as creating a symbolic link of the file
-``git-hook-copyright/src/git/hook/copyright/copyright_.py`` to
-``<repository>/.git/hooks/pre-commit``.
+either happen on a local, i.e., per-repository, basis or globally.
+Though there are multiple ways to install the hook, usage of ``git``'s
+``core.hooksPath`` configuration is recommended.
 
-For a global installation (only affecting newly created or
-re-initialized repositories by the current user) one needs to associate
-the ``pre-commit`` hook file with the default template that ``git`` uses
-for laying out repository meta-data. E.g.,
+For a global installation, use:
 
-``$ git config --global init.templatedir ~/.git-templates``
+``$ git config --global core.hooksPath ~/.git/hooks``
 
-would instruct ``git`` to use ``~/.git-templates`` as the directory in
-which to search for templates to apply upon repository creation. Next,
-one has to create a ``hooks`` sub-directory (``~/.git-templates/hooks/``)
-and copy or link the file ``src/copyright/git/pre-commit`` into it. Care
-must be taken that the resulting or referenced (in case of a symbolic
-link) file is executable.
+where ``~/.git/hooks`` would be a directory with a symlink called
+``pre-commit`` pointing to the file
+``git-hook-copyright/src/git/hook/copyright/copyright_.py``.
 
-If the hook should be installed for existing repositories, those would
-require re-initialization. Some shell trickery can help out here, for
-instance:
-
-``$ find <dir> -iname ".git" -type d | sed 's!.*!(rm \0/hooks/pre-commit; cd \0/..; git init)!g' | sh``
-
-will find all repositories below ``<dir>`` and re-initialize them. Note
-that it removes any previously installed pre-commit hook. ``git init``
-would not overwrite such files.
+For a local installation the steps are similar but the ``git config``
+command needs to be run in the repository of interest and without the
+``--global`` option.
 
 
 Configuration
