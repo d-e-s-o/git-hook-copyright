@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #/***************************************************************************
-# *   Copyright (C) 2015,2017 Daniel Mueller (deso@posteo.net)              *
+# *   Copyright (C) 2015,2017-2018 Daniel Mueller (deso@posteo.net)         *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -45,6 +45,7 @@ from deso.git.hook.copyright import (
 )
 from os.path import (
   basename,
+  isdir,
 )
 from sys import (
   exit as exit_,
@@ -233,6 +234,14 @@ def normalizeStagedFile(path, normalize_fn, year, action, ignore=None):
     return found
 
 
+def isValidFile(path):
+  """Check whether the given file is a valid file we want to check for a copyright."""
+  # We ignore any directories being committed (that will likely only
+  # happen for submodules) and hidden files.
+  return not isdir(path) and \
+         not basename(path).startswith(".")
+
+
 def main():
   """Find all files to commit and normalize them before the commit takes place."""
   action = retrieveActionType()
@@ -243,7 +252,7 @@ def main():
   # year.
   year = datetime.now().year
 
-  for file_git_path in changedFiles():
+  for file_git_path in filter(isValidFile, changedFiles()):
     # When amending commits it is possible that all changes to a file
     # are reverted. In this case we want to omit this file from
     # normalization because we effectively made no changes to the file

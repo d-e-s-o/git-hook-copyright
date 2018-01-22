@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #/***************************************************************************
-# *   Copyright (C) 2015,2017 Daniel Mueller (deso@posteo.net)              *
+# *   Copyright (C) 2015,2017-2018 Daniel Mueller (deso@posteo.net)         *
 # *                                                                         *
 # *   This program is free software: you can redistribute it and/or modify  *
 # *   it under the terms of the GNU General Public License as published by  *
@@ -298,6 +298,23 @@ class TestGitHook(TestCase):
 
       new_content = read(repo, "copyright.py")
       self.assertEqual(new_content, expected)
+
+
+  def testSubmoduleHandling(self):
+    """Verify that submodules are handled correctly."""
+    with GitRepository() as lib,\
+         GitRepository() as app:
+      content = "// Copyright (c) 2013 All Right Reserved."
+      expected = "// Copyright (c) 2013,%d All Right Reserved." % YEAR
+
+      write(lib, "lib.dat", data=content)
+      lib.add("lib.dat")
+      lib.commit()
+
+      app.submodule("add", lib.path())
+      app.commit()
+
+      self.assertEqual(read(lib, "lib.dat"), expected)
 
 
 if __name__ == "__main__":
