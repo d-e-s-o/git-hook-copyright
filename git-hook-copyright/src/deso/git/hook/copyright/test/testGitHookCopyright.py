@@ -43,6 +43,7 @@ from deso.git.repo import (
 )
 from os import (
   chmod,
+  symlink,
 )
 from os.path import (
   dirname,
@@ -315,6 +316,18 @@ class TestGitHook(TestCase):
       app.commit()
 
       self.assertEqual(read(lib, "lib.dat"), expected)
+
+
+  def testSymlinks(self):
+    """Verify that symbolic links are handled correctly."""
+    with GitRepository() as repo:
+      repo.config(SECTION, KEY_COPYRIGHT_REQUIRED, str(True))
+
+      write(repo, "repo.dat", data="foobar")
+      symlink(repo.path("repo.dat"), repo.path("repo.lnk"))
+
+      repo.add("repo.lnk")
+      repo.commit()
 
 
 if __name__ == "__main__":

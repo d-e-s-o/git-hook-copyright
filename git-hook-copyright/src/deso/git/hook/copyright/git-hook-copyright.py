@@ -46,6 +46,7 @@ from deso.git.hook.copyright import (
 from os.path import (
   basename,
   isdir,
+  islink,
 )
 from sys import (
   exit as exit_,
@@ -237,8 +238,11 @@ def normalizeStagedFile(path, normalize_fn, year, action, ignore=None):
 def isValidFile(path):
   """Check whether the given file is a valid file we want to check for a copyright."""
   # We ignore any directories being committed (that will likely only
-  # happen for submodules) and hidden files.
+  # happen for submodules), as well as symbolic links (the destinations
+  # of which will be checked in case they are added and arguably should
+  # not be checked otherwise), and hidden files.
   return not isdir(path) and \
+         not islink(path) and \
          not basename(path).startswith(".")
 
 
